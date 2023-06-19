@@ -5,13 +5,16 @@
 #include <DHTesp.h>
 
 
-const char* nombre_red = "Finetwork_5G-5wmS";
+const char* nombre_red = "Finetwork_5wmS";
 const char* password_red = "MtC3zkcJ";
 #define WIFI_TIMEOUT_MS 20000
 #define brokerUser "PabloPaez07"
 #define brokerPass "anv64ahx"
 #define broker "broker.emqx.io"
 int port = 1883;
+long tiempo1 = 0;
+long tiempo2 = 0;
+
 
 DHTesp dht11;
 
@@ -61,6 +64,7 @@ void setup() {
 }
 
 void loop() {
+  
   if(!client.connected()){
     reconnect();
   }
@@ -68,25 +72,29 @@ void loop() {
   //LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
   float humedad = dht11.getHumidity();
   float temperatura = dht11.getTemperature();
-  Serial.println(dht11.getMinimumSamplingPeriod());
-  Serial.println(temperatura);
-  Serial.println(humedad);
-  Serial.println("--------");
   //------------- JSON -----------------------------------------------
   StaticJsonBuffer<500> JSONbuffer;
   JsonObject& JSONencoder = JSONbuffer.createObject();
 
   JSONencoder["Dispositivo"] = "ESP32";
-  JSONencoder["Sensor"] = "DHT11 (Temperatura y humedad)";
-  JSONencoder["Temperatura: "] = temperatura;
-  JSONencoder["Humedad: "] = humedad;
+  JSONencoder["Sensor"] = "DHT11";
+  JSONencoder["Temperatura"] = temperatura;
+  JSONencoder["Humedad"] = humedad;
 
   char JSONmessageBuffer[200];
   JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
   //------------------------------------------------------------------
-  delay(2000);
+ tiempo2 = millis();
+ if(tiempo2 > (tiempo1+10000)){
+  Serial.println(dht11.getMinimumSamplingPeriod());
+  Serial.println(temperatura);
+  Serial.println(humedad);
+  Serial.println("--------");
+  tiempo1 = millis();
   digitalWrite(2, HIGH);
   client.publish("habitacion/1", JSONmessageBuffer);
+ }
+  
 
   //------------------------------------------------------------------
   client.loop();

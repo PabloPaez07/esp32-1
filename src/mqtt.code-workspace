@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "mqtt",
+			"path": ".."
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"string": "cpp"
+		}
+	}
+}
