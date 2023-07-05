@@ -1,9 +1,15 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <DHTesp.h>
+#include <MQUnifiedsensor.h>
+#include <UniversalTelegramBot.h>
 
+
+#define BOTtoken "6334757569:AAHR6x_kyxVLyjcfqNCYgvBUDPSU0Py40Io"
+#define CHAT_ID  "1527257134"
 
 const char* nombre_red = "Finetwork_5wmS";
 const char* password_red = "MtC3zkcJ";
@@ -14,10 +20,19 @@ const char* password_red = "MtC3zkcJ";
 int port = 1883;
 long tiempo1 = 0;
 long tiempo2 = 0;
-
+long tiempo3 = 0;
+float movimiento;
+bool enviada_alerta = false;
+bool alarma_activa = true;
+float humedad;
+float temperatura;
+float monoxido_carbono;
+float butano_propano;
 
 DHTesp dht11;
 
+WiFiClientSecure cliente;
+UniversalTelegramBot bot(BOTtoken, cliente);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -45,7 +60,7 @@ void reconnect(){
   while(!client.connected()){
     Serial.print("\nConnecting to");
     Serial.println(broker);
-    if(client.connect("topic",brokerUser,brokerPass)){
+    if(client.connect("alarma",brokerUser,brokerPass)){
       Serial.print("\nConnected to");
       Serial.println(broker);
     }else{
@@ -60,7 +75,11 @@ void setup() {
   setupWifi();
   client.setServer(broker, port);
   pinMode(2,OUTPUT);
-  dht11.setup(16,DHTesp::DHT11);
+  dht11.setup(33,DHTesp::DHT11);
+  pinMode(35, INPUT);  //CO
+  pinMode(34, INPUT); //Butano_Propano
+  pinMode(32, INPUT);
+  cliente.setInsecure();
 }
 
 void loop() {
@@ -70,33 +89,52 @@ void loop() {
   }
 
   //LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
-  float humedad = dht11.getHumidity();
-  float temperatura = dht11.getTemperature();
+  humedad = dht11.getHumidity();
+  temperatura = dht11.getTemperature();
+  monoxido_carbono = analogRead(35);
+  butano_propano = analogRead(34);
   //------------- JSON -----------------------------------------------
-  StaticJsonBuffer<500> JSONbuffer;
-  JsonObject& JSONencoder = JSONbuffer.createObject();
+  StaticJsonDocument<500>  JSONbuffer;
 
-  JSONencoder["Dispositivo"] = "ESP32";
-  JSONencoder["Sensor"] = "DHT11";
-  JSONencoder["Temperatura"] = temperatura;
-  JSONencoder["Humedad"] = humedad;
+  JSONbuffer["Dispositivo"] = "ESP32";
+  JSONbuffer["Sensor"] = "DHT11";
+  JSONbuffer["Temperatura"] = temperatura;
+  JSONbuffer["Humedad"] = humedad;
+  JSONbuffer["CO"] = monoxido_carbono/4095;
+  JSONbuffer["Butano"] = butano_propano/4095;
 
   char JSONmessageBuffer[200];
-  JSONencoder.printTo(JSONmessageBuffer, sizeof(JSONmessageBuffer));
+  serializeJson(JSONbuffer, JSONmessageBuffer);
   //------------------------------------------------------------------
  tiempo2 = millis();
- if(tiempo2 > (tiempo1+10000)){
-  Serial.println(dht11.getMinimumSamplingPeriod());
+ if(tiempo2 > (tiempo1+2000))
+ {
   Serial.println(temperatura);
   Serial.println(humedad);
+  Serial.println(monoxido_carbono/4095);
+  Serial.println(butano_propano/4095);
   Serial.println("--------");
-  tiempo1 = millis();
-  digitalWrite(2, HIGH);
   client.publish("habitacion/1", JSONmessageBuffer);
- }
-  
-
-  //------------------------------------------------------------------
-  client.loop();
+  digitalWrite(2, HIGH);
+  delay(100);
   digitalWrite(2,LOW);
+  tiempo1=millis();
+ }
+//------------------------------------------------------------------------
+
+  if(digitalRead(32))
+  {
+    if(!enviada_alerta && alarma_activa)
+    {
+      Serial.println("envio de mensaje");
+      bot.sendMessage(CHAT_ID,"¡He detectado movimiento!","");
+      enviada_alerta = true;
+    }
+    if(tiempo2 > (tiempo3 + 2200000)) // 5 minutos = 300000
+    {
+      enviada_alerta = false;
+      tiempo3 = millis();
+    }
+  }
+  client.loop();
 }
