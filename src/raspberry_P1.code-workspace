@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "../../../../raspberry_P1"
+		},
+		{
+			"name": "mqtt",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}

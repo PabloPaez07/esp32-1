@@ -18,10 +18,11 @@ const char* password_red = "MtC3zkcJ";
 #define brokerPass "anv64ahx"
 #define broker "broker.emqx.io"
 int port = 1883;
-long tiempo1 = 0;
-long tiempo2 = 0;
-long tiempo3 = 0;
-long tiempo4 = 0;
+long tiempo_habitacion_1 = 0;
+long tiempo = 0;
+long tiempo_cocina = 0;
+long tiempo_alarma_movimiento = 0;
+long tiempo_alarma_gases = 0;
 long tiempo_lectura_temperatura = 0;
 float movimiento;
 bool enviada_alerta = false;
@@ -63,7 +64,7 @@ void reconnect(){
   while(!client.connected()){
     Serial.print("\nConnecting to");
     Serial.println(broker);
-    if(client.connect("alarma",brokerUser,brokerPass)){
+    if(client.connect("#",brokerUser,brokerPass)){
       Serial.print("\nConnected to");
       Serial.println(broker);
     }else{
@@ -93,68 +94,80 @@ void loop() {
     reconnect();
   }
 
-  //LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
-  if( tiempo2 > (tiempo_lectura_temperatura + 600000) )
-  {
-    humedad = dht11.getHumidity();
-    temperatura = dht11.getTemperature();
-    tiempo_lectura_temperatura = millis();
-  }
+  
+//LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
+// if( tiempo2 > (tiempo_lectura_temperatura + 6000) )
+// {
+
+// }
   monoxido_carbono = analogRead(35);
   butano_propano = analogRead(34);
-  //------------- JSON -----------------------------------------------
-  StaticJsonDocument<500>  JSONbuffer;
 
-  JSONbuffer["Dispositivo"] = "ESP32";
-  JSONbuffer["Sensor"] = "DHT11";
-  JSONbuffer["Temperatura"] = temperatura;
-  JSONbuffer["Humedad"] = humedad;
-  JSONbuffer["CO"] = monoxido_carbono/4095;
-  JSONbuffer["Butano"] = butano_propano/4095;
+//------------- JSON -----------------------------------------------
 
-  char JSONmessageBuffer[200];
-  serializeJson(JSONbuffer, JSONmessageBuffer);
-  //------------------------------------------------------------------
- tiempo2 = millis();
- if(tiempo2 > (tiempo1+1000))
+
+  StaticJsonDocument<500>  JSONbuffer_habitacion;
+  StaticJsonDocument<500>  JSONbuffer_cocina;
+
+
+
+  char JSONmessageBuffer_habitacion[200];
+  char JSONmessageBuffer_cocina[200];
+
+
+
+//------------------------------------------------------------------
+
+
+ tiempo = millis();
+ if(tiempo > (tiempo_habitacion_1+60000))
  {
-  Serial.println(temperatura);
-  Serial.println(humedad);
-  Serial.println(monoxido_carbono/4095);
-  Serial.println(butano_propano/4095);
-  Serial.println("--------");
-  client.publish("habitacion/1", JSONmessageBuffer);
-  digitalWrite(2, HIGH);
-  delay(100);
-  digitalWrite(2,LOW);
-  tiempo1=millis();
+  humedad = dht11.getHumidity();
+  temperatura = dht11.getTemperature();
+  JSONbuffer_habitacion["Temperatura"] = temperatura;
+  JSONbuffer_habitacion["Humedad"] = humedad;
+  serializeJson(JSONbuffer_habitacion, JSONmessageBuffer_habitacion);
+  client.publish("habitacion/1", JSONmessageBuffer_habitacion);
+  tiempo_habitacion_1=millis();
  }
+
+ if(tiempo > (tiempo_cocina+10000))
+ {
+  JSONbuffer_cocina["CO"] = monoxido_carbono/4095;
+  JSONbuffer_cocina["Butano"] = butano_propano/4095;
+  serializeJson(JSONbuffer_cocina, JSONmessageBuffer_cocina);
+  client.publish("cocina", JSONmessageBuffer_cocina);
+  tiempo_cocina=millis();
+ }
+
+
 //------------------------------------------------------------------------
 
   if(digitalRead(32))
   {
     if(!enviada_alerta && alarma_activa)
     {
-      Serial.println("envio de mensaje");
-      bot.sendMessage(CHAT_ID,"¡He detectado movimiento!","");
+      bot.sendMessage(CHAT_ID,"¡He detectado movimiento!","hola");
       enviada_alerta = true;
     }
-    if(tiempo2 > (tiempo3 + 2200000)) // 5 minutos = 300000
+    if(tiempo > (tiempo_alarma_movimiento + 300000)) // 5 minutos = 300000
     {
       enviada_alerta = false;
-      tiempo3 = millis();
+      tiempo_alarma_movimiento = millis();
     }
   }
+
+
   if(!enviada_alerta_gases && (monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8))
   {
     bot.sendMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
     enviada_alerta_gases = true;
-    if(tiempo2 > (tiempo4 + 120000))
-    {
-      enviada_alerta_gases = false;
-      tiempo4 = millis();
-    }
-    
   }
+  if(tiempo > (tiempo_alarma_gases + 60000))
+  {
+    enviada_alerta_gases = false;
+    tiempo_alarma_gases = millis();
+  }
+
   client.loop();
 }
