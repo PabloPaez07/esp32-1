@@ -21,9 +21,12 @@ int port = 1883;
 long tiempo1 = 0;
 long tiempo2 = 0;
 long tiempo3 = 0;
+long tiempo4 = 0;
+long tiempo_lectura_temperatura = 0;
 float movimiento;
 bool enviada_alerta = false;
 bool alarma_activa = true;
+bool enviada_alerta_gases = false;
 float humedad;
 float temperatura;
 float monoxido_carbono;
@@ -80,6 +83,8 @@ void setup() {
   pinMode(34, INPUT); //Butano_Propano
   pinMode(32, INPUT);
   cliente.setInsecure();
+  humedad = dht11.getHumidity();
+  temperatura = dht11.getTemperature();
 }
 
 void loop() {
@@ -89,8 +94,12 @@ void loop() {
   }
 
   //LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
-  humedad = dht11.getHumidity();
-  temperatura = dht11.getTemperature();
+  if( tiempo2 > (tiempo_lectura_temperatura + 600000) )
+  {
+    humedad = dht11.getHumidity();
+    temperatura = dht11.getTemperature();
+    tiempo_lectura_temperatura = millis();
+  }
   monoxido_carbono = analogRead(35);
   butano_propano = analogRead(34);
   //------------- JSON -----------------------------------------------
@@ -107,7 +116,7 @@ void loop() {
   serializeJson(JSONbuffer, JSONmessageBuffer);
   //------------------------------------------------------------------
  tiempo2 = millis();
- if(tiempo2 > (tiempo1+2000))
+ if(tiempo2 > (tiempo1+1000))
  {
   Serial.println(temperatura);
   Serial.println(humedad);
@@ -135,6 +144,17 @@ void loop() {
       enviada_alerta = false;
       tiempo3 = millis();
     }
+  }
+  if(!enviada_alerta_gases && (monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8))
+  {
+    bot.sendMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
+    enviada_alerta_gases = true;
+    if(tiempo2 > (tiempo4 + 120000))
+    {
+      enviada_alerta_gases = false;
+      tiempo4 = millis();
+    }
+    
   }
   client.loop();
 }
