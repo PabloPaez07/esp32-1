@@ -11,8 +11,8 @@
 #define BOTtoken "6334757569:AAHR6x_kyxVLyjcfqNCYgvBUDPSU0Py40Io"
 #define CHAT_ID  "1527257134"
 
-const char* nombre_red = "Finetwork_5wmS";
-const char* password_red = "MtC3zkcJ";
+const char* nombre_red = "TP-LINK_CC86";
+const char* password_red = "56721058";
 #define WIFI_TIMEOUT_MS 20000
 #define brokerUser "PabloPaez07"
 #define brokerPass "anv64ahx"
@@ -26,7 +26,8 @@ long tiempo_alarma_gases = 0;
 long tiempo_lectura_temperatura = 0;
 float movimiento;
 bool enviada_alerta = false;
-bool alarma_activa = true;
+bool alarma_movimiento_activa = true;
+bool alarma_gases_activa = true;
 bool enviada_alerta_gases = false;
 float humedad;
 float temperatura;
@@ -140,14 +141,12 @@ void loop() {
   tiempo_cocina=millis();
  }
 
-
 //------------------------------------------------------------------------
-
   if(digitalRead(32))
   {
-    if(!enviada_alerta && alarma_activa)
+    if(!enviada_alerta && alarma_movimiento_activa)
     {
-      bot.sendMessage(CHAT_ID,"¡He detectado movimiento!","hola");
+      bot.sendSimpleMessage(CHAT_ID,"¡He detectado movimiento!","");
       enviada_alerta = true;
     }
     if(tiempo > (tiempo_alarma_movimiento + 300000)) // 5 minutos = 300000
@@ -158,9 +157,9 @@ void loop() {
   }
 
 
-  if(!enviada_alerta_gases && (monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8))
+  if(!enviada_alerta_gases && (monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8) && alarma_gases_activa)
   {
-    bot.sendMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
+    bot.sendSimpleMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
     enviada_alerta_gases = true;
   }
   if(tiempo > (tiempo_alarma_gases + 60000))
