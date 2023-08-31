@@ -36,8 +36,8 @@ float butano_propano;
 
 DHTesp dht11;
 
-WiFiClientSecure cliente;
-UniversalTelegramBot bot(BOTtoken, cliente);
+WiFiClientSecure cliente_telegram;
+UniversalTelegramBot bot(BOTtoken, cliente_telegram);
 WiFiClient espClient;
 PubSubClient client(espClient);
 
@@ -80,66 +80,49 @@ void setup() {
   setupWifi();
   client.setServer(broker, port);
   pinMode(2,OUTPUT);
-  dht11.setup(33,DHTesp::DHT11);
-  pinMode(35, INPUT);  //CO
-  pinMode(34, INPUT); //Butano_Propano
-  pinMode(32, INPUT);
-  cliente.setInsecure();
-  humedad = dht11.getHumidity();
-  temperatura = dht11.getTemperature();
+  dht11.setup(GPIO_NUM_33,DHTesp::DHT11);
+  pinMode(GPIO_NUM_35, INPUT);  //CO
+  pinMode(GPIO_NUM_34, INPUT); //Butano_Propano
+  pinMode(GPIO_NUM_32, INPUT);
+  pinMode(GPIO_NUM_25, INPUT);
+  pinMode(GPIO_NUM_27, INPUT);
+  cliente_telegram.setInsecure();
+  int segundos_sleep = 60;
+  esp_sleep_enable_gpio_wakeup();
+  esp_sleep_enable_timer_wakeup(segundos_sleep * 1000000);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_25,0);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_27,0);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_32,1);
 }
 
 void loop() {
-  
-  if(!client.connected()){
+  WiFi.reconnect();
+  if(WiFi.status() == WL_CONNECTED)
+  {
     reconnect();
   }
-
   
-//LECTURA DE TEMPERATURAS Y HUMEDAD (DHT11) ------------------------
-// if( tiempo2 > (tiempo_lectura_temperatura + 6000) )
-// {
-
-// }
-  monoxido_carbono = analogRead(35);
-  butano_propano = analogRead(34);
-
 //------------- JSON -----------------------------------------------
-
-
   StaticJsonDocument<500>  JSONbuffer_habitacion;
   StaticJsonDocument<500>  JSONbuffer_cocina;
-
-
 
   char JSONmessageBuffer_habitacion[200];
   char JSONmessageBuffer_cocina[200];
 
-
-
 //------------------------------------------------------------------
-
-
- tiempo = millis();
- if(tiempo > (tiempo_habitacion_1+60000))
- {
   humedad = dht11.getHumidity();
   temperatura = dht11.getTemperature();
   JSONbuffer_habitacion["Temperatura"] = temperatura;
   JSONbuffer_habitacion["Humedad"] = humedad;
   serializeJson(JSONbuffer_habitacion, JSONmessageBuffer_habitacion);
   client.publish("habitacion/1", JSONmessageBuffer_habitacion);
-  tiempo_habitacion_1=millis();
- }
 
- if(tiempo > (tiempo_cocina+10000))
- {
+  monoxido_carbono = analogRead(35);
+  butano_propano = analogRead(34);
   JSONbuffer_cocina["CO"] = monoxido_carbono/4095;
   JSONbuffer_cocina["Butano"] = butano_propano/4095;
   serializeJson(JSONbuffer_cocina, JSONmessageBuffer_cocina);
   client.publish("cocina", JSONmessageBuffer_cocina);
-  tiempo_cocina=millis();
- }
 
 //------------------------------------------------------------------------
   if(digitalRead(32))
@@ -147,26 +130,26 @@ void loop() {
     if(!enviada_alerta && alarma_movimiento_activa)
     {
       bot.sendSimpleMessage(CHAT_ID,"¡He detectado movimiento!","");
-      enviada_alerta = true;
-    }
-    if(tiempo > (tiempo_alarma_movimiento + 300000)) // 5 minutos = 300000
-    {
-      enviada_alerta = false;
-      tiempo_alarma_movimiento = millis();
     }
   }
-
-
-  if(!enviada_alerta_gases && (monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8) && alarma_gases_activa)
+  Serial.println("----------");
+  Serial.print("32: ");
+  Serial.println(digitalRead(32));
+  Serial.print("25: ");
+  Serial.println(digitalRead(25));
+  Serial.print("27: ");
+  Serial.println(digitalRead(27));
+  if(!enviada_alerta_gases && (!digitalRead(25) || !digitalRead(27)) && alarma_gases_activa)
   {
+    Serial.println("GASES");
+    Serial.print("25: ");
+    Serial.println(digitalRead(25));
+    Serial.print("27: ");
+    Serial.println(digitalRead(27));
+    Serial.println("----------");
     bot.sendSimpleMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
-    enviada_alerta_gases = true;
   }
-  if(tiempo > (tiempo_alarma_gases + 60000))
-  {
-    enviada_alerta_gases = false;
-    tiempo_alarma_gases = millis();
-  }
-
   client.loop();
+
+  esp_light_sleep_start();
 }
