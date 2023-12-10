@@ -20,6 +20,8 @@ const char* password_red = "@Wifipalu";
 int port = 1883;
 
 long tiempo = 0;
+long tiempo_captura_movimiento = 0;
+long tiempo_captura_gases = 0;
 
 long tiempo_actual_habitacion_1 = 0;
 const long tiempo_habitacion_1 = 10000;
@@ -102,14 +104,24 @@ void loop() {
     tiempo_actual_cocina=millis();
   }
 
-  Serial.print(digitalRead(32));
+  //Serial.print(digitalRead(32));
   if(digitalRead(32) == HIGH)
   {
-    envioAlertaMovimiento();
+    if(tiempo > (tiempo_captura_movimiento + 200)) //antirrebote (200ms)
+    {
+      envioAlertaMovimiento();
+    }
+  }else{
+    tiempo_captura_movimiento = millis();
   }
 
   if(monoxido_carbono/4095 > 0.8 || butano_propano/4095 > 0.8){
-    envioAlertaGases();
+    if(tiempo > (tiempo_captura_gases + 200)) //antirrebote (200ms)
+    {
+      envioAlertaGases();
+    }
+  }else{
+    tiempo_captura_gases = millis();
   }
 
   client.loop();
@@ -156,8 +168,8 @@ void publicarGasesCocina(){
 void envioAlertaMovimiento(){
     if(!enviada_alerta && alarma_movimiento_activa)
     {
-      Serial.printf("\nenvio_alarma_movimiento\n");
-      bot.sendSimpleMessage(CHAT_ID,"¡He detectado movimiento!","");
+      //Serial.printf("\nenvio_alarma_movimiento\n");
+      bot.sendSimpleMessage(CHAT_ID,"¡Se ha detectado movimiento!","");
       enviada_alerta = true;
     }
     if(tiempo > (tiempo_actual_alarma_movimiento + tiempo_alarma_movimiento))
@@ -168,7 +180,7 @@ void envioAlertaMovimiento(){
 }
 void envioAlertaGases(){
   if(!enviada_alerta_gases && alarma_gases_activa){
-      bot.sendSimpleMessage(CHAT_ID,"!PRESENCIA DE GASES PELIGROSOS!","");
+      bot.sendSimpleMessage(CHAT_ID,"!Se han detectado gases potencialmente peligrosos!","");
       enviada_alerta_gases = true;
   }
   if(tiempo > (tiempo_actual_alarma_gases + tiempo_alarma_gases)){
