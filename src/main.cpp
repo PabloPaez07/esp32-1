@@ -8,16 +8,16 @@
 #include <UniversalTelegramBot.h>
 
 
-#define BOTtoken "6334757569:AAHR6x_kyxVLyjcfqNCYgvBUDPSU0Py40Io"
-#define CHAT_ID  "1527257134"
+#define BOTtoken "---"
+#define CHAT_ID  "---"
 
-const char* nombre_red = "TP-LINK_CC86";
-const char* password_red = "@Wifipalu";
+const char* nombre_red = "----";
+const char* password_red = "---";
 #define WIFI_TIMEOUT_MS 20000
-#define brokerUser "PabloPaez07"
-#define brokerPass "anv64ahx"
-#define broker "broker.emqx.io"
-int port = 1883;
+#define brokerUser "---"
+#define brokerPass "---"
+#define broker "---"
+int port = ---;
 
 long tiempo = 0;
 long tiempo_captura_movimiento = 0;
